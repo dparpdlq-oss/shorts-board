@@ -1,0 +1,29 @@
+name: 쇼츠 자동 수집
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 매일 한국시간 오전 9시
+  workflow_dispatch:       # 버튼으로 바로 실행하기
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 유튜브 쇼츠 가져오기
+        run: node collect.js
+        env:
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+      - name: 결과 저장
+        run: |
+          git config user.name "shorts-bot"
+          git config user.email "shorts-bot@users.noreply.github.com"
+          git add data/shorts.json
+          git diff --cached --quiet || git commit -m "쇼츠 업데이트"
+          git push
