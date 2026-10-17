@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>쇼츠 트렌드 보드</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ECEEF6;--surface:#FFFFFF;--ink:#1C2033;--muted:#646B85;--line:#D5D9E8;--accent:#E5281F;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#141621;--surface:#1E2130;--ink:#E9EBF5;--muted:#9AA0B8;--line:#2E3246;--accent:#FF5A52;color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+h1{font-family:"Black Han Sans","IBM Plex Sans KR",sans-serif;font-weight:400;font-size:clamp(34px,7vw,64px);line-height:1;margin:0 0 8px}
+.sub{color:var(--muted);margin:0 0 22px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px}
+.chip{font:inherit;cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--ink);padding:6px 13px;border-radius:999px;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+input{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;margin-left:auto;width:min(260px,100%)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.card{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.thumb{position:relative;aspect-ratio:9/14;background:var(--line);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.rank{position:absolute;left:10px;top:8px;font-family:"Black Han Sans",sans-serif;font-size:30px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.dur{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:2px 6px;border-radius:6px}
+.info{padding:10px 12px 14px;display:flex;flex-direction:column;gap:4px}
+.title{font-weight:500;font-size:14px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.meta{font-size:12px;color:var(--muted)}
+.views{font-weight:700;color:var(--accent);font-size:14px}
+.msg{border:2px dashed var(--line);border-radius:20px;padding:40px 20px;text-align:center;color:var(--muted);grid-column:1/-1}
+@media (max-width:640px){input{margin-left:0;width:100%}.grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>쇼츠 트렌드 보드</h1>
+  <p class="sub" id="sub">불러오는 중…</p>
+  <div class="bar" id="bar"></div>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+let items=[], sort="views", q="";
+const fmt=n=>n>=1e8?(n/1e8).toFixed(1)+"억":n>=1e4?(n/1e4).toFixed(n>=1e5?0:1)+"만":n.toLocaleString("ko-KR");
+const ago=d=>{const h=(Date.now()-new Date(d))/36e5;return h<24?Math.max(1,Math.round(h))+"시간 전":Math.round(h/24)+"일 전"};
+const mmss=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+
+function render(){
+  const bar=document.getElementById("bar");bar.innerHTML="";
+  [["views","조회수순"],["new","최신순"],["likes","좋아요순"]].forEach(([k,l])=>{
+    const b=document.createElement("button");b.className="chip";b.textContent=l;b.setAttribute("aria-pressed",sort===k);
+    b.onclick=()=>{sort=k;render()};bar.appendChild(b);
+  });
+  const inp=document.createElement("input");inp.type="search";inp.placeholder="제목·채널 검색";inp.value=q;
+  inp.oninput=e=>{q=e.target.value;draw()};bar.appendChild(inp);
+  draw();
+}
+function draw(){
+  const g=document.getElementById("grid");g.innerHTML="";
+  const ql=q.toLowerCase();
+  const list=items.filter(i=>!ql||(i.title+" "+i.channel).toLowerCase().includes(ql))
+    .sort((a,b)=>sort==="new"?new Date(b.publishedAt)-new Date(a.publishedAt):sort==="likes"?b.likes-a.likes:b.views-a.views);
+  if(!list.length){g.innerHTML='<div class="msg">검색 결과가 없어요.</div>';return}
+  list.forEach((i,n)=>{
+    const a=document.createElement("a");a.className="card";a.href="https://www.youtube.com/shorts/"+i.id;a.target="_blank";a.rel="noopener";
+    a.innerHTML='<div class="thumb"><img loading="lazy" alt=""><span class="rank"></span><span class="dur"></span></div><div class="info"><div class="views"></div><div class="title"></div><div class="meta"></div></div>';
+    a.querySelector("img").src=i.thumb;
+    a.querySelector(".rank").textContent=n+1;
+    a.querySelector(".dur").textContent=mmss(i.duration);
+    a.querySelector(".views").textContent="조회수 "+fmt(i.views);
+    a.querySelector(".title").textContent=i.title;
+    a.querySelector(".meta").textContent=i.channel+" | "+ago(i.publishedAt);
+    g.appendChild(a);
+  });
+}
+async function load(){
+  const [user]=location.hostname.split(".");
+  const repo=location.pathname.split("/").filter(Boolean)[0];
+  const urls=[];
+  if(location.hostname.endsWith("github.io")&&repo) urls.push(`https://raw.githubusercontent.com/${user}/${repo}/main/data/shorts.json?t=${Date.now()}`);
+  urls.push("data/shorts.json?t="+Date.now());
+  for(const u of urls){
+    try{const r=await fetch(u);if(!r.ok)continue;const j=await r.json();
+      items=j.items||[];
+      document.getElementById("sub").textContent=`유튜브 한국 인기 쇼츠 ${items.length}개 | ${new Date(j.updatedAt).toLocaleString("ko-KR")} 업데이트`;
+      render();return;}catch{}
+  }
+  document.getElementById("sub").textContent="아직 수집된 쇼츠가 없어요.";
+  document.getElementById("grid").innerHTML='<div class="msg">깃허브 Actions 탭에서 "쇼츠 자동 수집"을 한 번 실행해 주세요.</div>';
+}
+load();
+</script>
+</body>
+</html>
